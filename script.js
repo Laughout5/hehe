@@ -1,7 +1,8 @@
 // ===== CONFIGURATION - EASILY CUSTOMIZABLE =====
 const CONFIG = {
     requiredAttempts: 10,        // How many attempts before catch works
-    flowerSpeed: 0.7,            // How fast flower moves away (0.1-1)
+    baseFlowerSpeed: 0.5,        // Base speed (will increase with each touch)
+    maxFlowerSpeed: 2.5,         // Maximum speed cap
     flowerSize: 100,             // Width/height of flower in pixels
     
     // 🌸 FRIENDSHIP MESSAGES - ADD YOUR OWN HERE!
@@ -35,6 +36,7 @@ let mouseX = 0, mouseY = 0;
 let flowerX = window.innerWidth / 2 - 50;
 let flowerY = window.innerHeight / 2 - 50;
 let gardenFlowers = [];
+let messageClickCount = 0;  // Track how many messages have been shown
 
 // DOM Elements
 const flower = document.getElementById('shy-flower');
@@ -63,52 +65,116 @@ document.addEventListener('touchmove', (e) => {
     checkAndMoveFlower();
 }, { passive: false });
 
-// Main game logic
-function checkAndMoveFlower() {
+// Track clicks/taps on the flower area
+document.addEventListener('click', (e) => {
     if (gameState !== 'playing') return;
-
-    // Get flower center position
+    
+    // Check if click is near flower
     const flowerCenterX = flowerX + CONFIG.flowerSize / 2;
     const flowerCenterY = flowerY + CONFIG.flowerSize / 2;
     
-    // Calculate distance from mouse to flower center
     const distance = Math.sqrt(
-        Math.pow(mouseX - flowerCenterX, 2) + 
-        Math.pow(mouseY - flowerCenterY, 2)
+        Math.pow(e.clientX - flowerCenterX, 2) + 
+        Math.pow(e.clientY - flowerCenterY, 2)
     );
     
-    // If mouse is close, move flower away
-    if (distance < 100) {
-        // Direction away from mouse
-        const angle = Math.atan2(flowerCenterY - mouseY, flowerCenterX - mouseX);
-        
-        // Move flower
-        flowerX += Math.cos(angle) * 15 * CONFIG.flowerSpeed;
-        flowerY += Math.sin(angle) * 15 * CONFIG.flowerSpeed;
-        
-        // Keep flower in bounds
-        flowerX = Math.max(10, Math.min(window.innerWidth - CONFIG.flowerSize - 10, flowerX));
-        flowerY = Math.max(10, Math.min(window.innerHeight - CONFIG.flowerSize - 10, flowerY));
-        
-        // Update position
-        flower.style.left = flowerX + 'px';
-        flower.style.top = flowerY + 'px';
-        
-        // Increment attempt counter
-        attemptCount++;
-        attemptSpan.textContent = attemptCount;
-        
-        // Quick animation
-        flower.style.transform = 'scale(0.9)';
-        setTimeout(() => {
-            flower.style.transform = 'scale(1)';
-        }, 100);
-        
-        // Check if caught
-        if (attemptCount >= CONFIG.requiredAttempts) {
-            catchFlower();
-        }
+    if (distance < 70) {  // If clicked close to flower
+        handleFlowerTouch();
     }
+});
+
+// Track touch for mobile
+document.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (gameState !== 'playing') return;
+    
+    const touch = e.touches[0];
+    const flowerCenterX = flowerX + CONFIG.flowerSize / 2;
+    const flowerCenterY = flowerY + CONFIG.flowerSize / 2;
+    
+    const distance = Math.sqrt(
+        Math.pow(touch.clientX - flowerCenterX, 2) + 
+        Math.pow(touch.clientY - flowerCenterY, 2)
+    );
+    
+    if (distance < 70) {
+        handleFlowerTouch();
+    }
+}, { passive: false });
+
+// Handle flower touch/click
+function handleFlowerTouch() {
+    if (gameState !== 'playing') return;
+    
+    // Increment attempt counter
+    attemptCount++;
+    attemptSpan.textContent = attemptCount;
+    
+    // Calculate current speed (increases with each attempt)
+    const currentSpeed = Math.min(
+        CONFIG.baseFlowerSpeed + (attemptCount * 0.15),  // Gets faster every touch
+        CONFIG.maxFlowerSpeed
+    );
+    
+    // Move flower AWAY from click position
+    const flowerCenterX = flowerX + CONFIG.flowerSize / 2;
+    const flowerCenterY = flowerY + CONFIG.flowerSize / 2;
+    
+    // Direction away from mouse/touch
+    const angle = Math.atan2(flowerCenterY - mouseY, flowerCenterX - mouseX);
+    
+    // Move flower - distance increases with attempts
+    const moveDistance = 20 + (attemptCount * 3);  // Moves farther each time
+    flowerX += Math.cos(angle) * moveDistance * currentSpeed;
+    flowerY += Math.sin(angle) * moveDistance * currentSpeed;
+    
+    // Keep flower in bounds
+    flowerX = Math.max(10, Math.min(window.innerWidth - CONFIG.flowerSize - 10, flowerX));
+    flowerY = Math.max(10, Math.min(window.innerHeight - CONFIG.flowerSize - 10, flowerY));
+    
+    // Update position
+    flower.style.left = flowerX + 'px';
+    flower.style.top = flowerY + 'px';
+    
+    // Quick animation
+    flower.style.transform = 'scale(0.8)';
+    setTimeout(() => {
+        flower.style.transform = 'scale(1)';
+    }, 150);
+    
+    // Show "whoosh" effect
+    showQuickMessage(`💨 Jump ${attemptCount}!`);
+    
+    // Check if caught
+    if (attemptCount >= CONFIG.requiredAttempts) {
+        catchFlower();
+    }
+}
+
+// Show quick message that disappears
+function showQuickMessage(text) {
+    const msg = document.createElement('div');
+    msg.style.position = 'fixed';
+    msg.style.left = mouseX + 'px';
+    msg.style.top = (mouseY - 40) + 'px';
+    msg.style.background = 'rgba(255, 200, 220, 0.9)';
+    msg.style.padding = '5px 15px';
+    msg.style.borderRadius = '20px';
+    msg.style.fontSize = '16px';
+    msg.style.color = '#c44569';
+    msg.style.border = '1px solid white';
+    msg.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+    msg.style.zIndex = '1000';
+    msg.style.pointerEvents = 'none';
+    msg.style.transition = 'opacity 0.5s';
+    msg.textContent = text;
+    
+    document.body.appendChild(msg);
+    
+    setTimeout(() => {
+        msg.style.opacity = '0';
+        setTimeout(() => msg.remove(), 500);
+    }, 800);
 }
 
 // ===== CATCH FLOWER - THE BIG MOMENT! =====
@@ -153,11 +219,21 @@ function createFloatingFlower() {
     // Store message for this flower
     const messageIndex = Math.floor(Math.random() * CONFIG.messages.length);
     flowerElement.dataset.message = CONFIG.messages[messageIndex];
+    flowerElement.dataset.messageIndex = messageIndex;
     
     // Add click handler
     flowerElement.addEventListener('click', (e) => {
         e.stopPropagation();
-        showMessage(flowerElement.dataset.message);
+        
+        // Increment message counter
+        messageClickCount++;
+        
+        // Show message with counter
+        showMessageWithCounter(
+            flowerElement.dataset.message, 
+            messageClickCount, 
+            CONFIG.messages.length
+        );
         
         // Add to garden
         addToGarden(flowerElement.textContent);
@@ -176,8 +252,8 @@ function createFloatingFlower() {
     }, 8000);
 }
 
-// ===== SHOW MESSAGE POPUP =====
-function showMessage(msg) {
+// ===== SHOW MESSAGE WITH COUNTER =====
+function showMessageWithCounter(msg, currentNum, totalNum) {
     // Remove any existing popup
     const oldPopup = document.querySelector('.message-popup');
     if (oldPopup) oldPopup.remove();
@@ -185,16 +261,29 @@ function showMessage(msg) {
     // Create new popup
     const popup = document.createElement('div');
     popup.className = 'message-popup';
-    popup.textContent = msg;
+    
+    // Main message
+    const messageText = document.createElement('div');
+    messageText.style.fontSize = '22px';
+    messageText.style.marginBottom = '5px';
+    messageText.textContent = msg;
+    
+    // Counter
+    const counter = document.createElement('div');
+    counter.className = 'popup-counter';
+    counter.textContent = `✨ Message ${currentNum} of ${totalNum} ✨`;
+    
+    popup.appendChild(messageText);
+    popup.appendChild(counter);
     
     document.body.appendChild(popup);
     
-    // Auto remove after 3 seconds
+    // Auto remove after 4 seconds
     setTimeout(() => {
         popup.style.opacity = '0';
         popup.style.transition = 'opacity 0.5s';
         setTimeout(() => popup.remove(), 500);
-    }, 3000);
+    }, 4000);
 }
 
 // ===== ADD FLOWER TO GARDEN =====
@@ -251,13 +340,14 @@ window.addEventListener('load', () => {
     console.log('🌸 Shy Flower is ready to play!');
 });
 
-// For debugging - click anywhere to reset (remove in final version)
+// Reset game (click anywhere on background)
 container.addEventListener('click', (e) => {
     if (e.target === container && gameState === 'celebrating') {
         // Reset game
         gameState = 'playing';
         attemptCount = 0;
         attemptSpan.textContent = '0';
+        messageClickCount = 0;  // Reset message counter
         flower.style.opacity = '1';
         celebrationMsg.classList.add('hidden');
         document.body.style.background = 'linear-gradient(145deg, #fbe9f0 0%, #e0f2e9 100%)';

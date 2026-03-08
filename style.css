@@ -217,3 +217,11 @@ body {
         opacity: 1;
     }
 }
+
+/* Popup counter - shows which message number */
+.popup-counter {
+    font-size: 14px;
+    color: #ff8aa1;
+    margin-top: 5px;
+    font-style: italic;
+}
